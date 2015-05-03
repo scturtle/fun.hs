@@ -68,30 +68,29 @@ typeOf env expr =
       let t' = typeOf ((x, t) : env) e
       in  if t' == t then t else error "unmatch"
 
-type Env = [(String, Exp)]
-
-eval'' :: Exp -> State Env Exp
-eval'' expr =
+eval' :: Exp -> State [(String, Exp)] Exp
+eval' expr =
   case expr of
     Nat {} -> return expr
     Lam {} -> return expr
-    Var x  -> eval'' =<< fromJust <$> gets (lookup x)
-    Suc e     -> (\(Nat n) -> Nat (n + 1))       <$> eval'' e
-    Prd e     -> (\(Nat n) -> Nat (n - 1))       <$> eval'' e
-    Mul e1 e2 -> (\(Nat a) (Nat b) -> Nat (a*b)) <$> eval'' e1 <*> eval'' e2
-    Ifz e e1 e2   -> do v <- eval'' e; eval'' $ if v == Nat 0 then e1 else e2
-    f@(Fix _ x e) -> modify ((x, f) :) >> eval'' e
+    Var x  -> fromJust <$> gets (lookup x)
+    Suc e     -> (\(Nat n) -> Nat (n + 1))       <$> eval' e
+    Prd e     -> (\(Nat n) -> Nat (n - 1))       <$> eval' e
+    Mul e1 e2 -> (\(Nat a) (Nat b) -> Nat (a*b)) <$> eval' e1 <*> eval' e2
+    Ifz e e1 e2   -> do v <- eval' e; eval' (if v == Nat 0 then e1 else e2)
+    Fix _ x e -> modify ((x, e) :) >> eval' e
     App e1 e2 ->
-      do Lam _ x e <- eval'' e1
-         e2' <- eval'' e2
+      do Lam _ x e <- eval' e1
+         e2' <- eval' e2
          modify ((x, e2') :)
-         eval'' e
+         eval' e
 
 main :: IO ()
 main = do
   let fac = Fix (TArr TNat TNat) "fac" $
               Lam (TArr TNat TNat) "x" (Ifz "x" (Nat 1) (Mul "x" (App "fac" (Prd "x"))))
       prog = App fac (Nat 4)
-  print . typeOf [] $ prog
+  -- print . typeOf [] $ prog
   print . eval $ prog
-  print $ evalState (eval'' prog) []
+  -- print $ evalState (eval' fac) []
+  print $ evalState (eval' prog) []
