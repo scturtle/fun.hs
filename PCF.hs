@@ -77,9 +77,9 @@ eval' expr =
     Suc e     -> (\(Nat n) -> Nat (n + 1))       <$> eval' e
     Prd e     -> (\(Nat n) -> Nat (n - 1))       <$> eval' e
     Mul e1 e2 -> (\(Nat a) (Nat b) -> Nat (a*b)) <$> eval' e1 <*> eval' e2
-    Ifz e e1 e2   -> do v <- eval' e; eval' (if v == Nat 0 then e1 else e2)
-    Fix _ x e -> modify ((x, e) :) >> eval' e
-    App e1 e2 ->
+    Ifz e e1 e2 -> do v <- eval' e; eval' (if v == Nat 0 then e1 else e2)
+    Fix _ x e   -> modify ((x, e) :) >> eval' e
+    App e1 e2   ->
       do Lam _ x e <- eval' e1
          e2' <- eval' e2
          modify ((x, e2') :)
