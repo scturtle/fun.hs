@@ -1,13 +1,13 @@
 module Partiality where
 
-{- unsuccessful port from http://www.soimort.org/posts/programs-and-proofs/ -}
+{- port from http://www.soimort.org/posts/programs-and-proofs/ -}
 
 open import Data.Bool using (Bool; false; true)
 open import Data.Maybe using (Maybe; just; nothing)
 open import Data.Char using (_==_) renaming (Char to Symbol)
 open import Coinduction using (∞; ♯_; ♭)
-open import Category.Monad.Partiality renaming (monad to PM)
-open import Category.Monad using (RawMonad; module RawMonad)
+-- open import Category.Monad.Partiality renaming (monad to PM)
+-- open import Category.Monad using (RawMonad; module RawMonad)
 
 data Expr : Set where
   var : Symbol → Expr
@@ -33,17 +33,27 @@ lookup sym (sym′ ↦ val , env) with sym == sym′
 ... | true = just val
 ... | false = lookup sym env
 
--- data Partial (A : Set) : Set where
---   now : A → Partial A
---   later : ∞ (Partial A) → Partial A
+-- partiality monad
+data _⊥ (A : Set) : Set where
+  now : A → A ⊥
+  later : ∞ (A ⊥) → A ⊥
 
--- infixl 40 _>>=_
--- _>>=_ : {a b : Set} -> Partial a -> (a -> Partial b) -> Partial b
--- (now x) >>= f = f x
--- (later x) >>= f = later (♯ (♭ x >>= f))
+return : {a : Set} → a → a ⊥
+return = now
+
+_>>=_ : {a b : Set} → a ⊥ → (a → b ⊥) → b ⊥
+(now x) >>= f = f x
+(later x) >>= f = later (♯ (♭ x >>= f))
+infixl 40 _>>=_
+
+{-# TERMINATING #-}
+force : Value ⊥ → Value
+force (now x) = x
+force (later x) = force (♭ x)
 
 mutual
 
+  {-# TERMINATING #-} -- TODO: ???
   interp : Expr → Env → Value ⊥
   interp (var x) env with lookup x env
   ... | just val = now val
@@ -54,7 +64,20 @@ mutual
   apply : Value ⊥ → Value ⊥ → Value ⊥
   apply (later f) a = later (♯ apply (♭ f) a)
   apply (now (closure (def (lambda x e)) env)) a =
-    let open RawMonad PM in a >>= \a′ → interp e (x ↦ a′ , env)
+                               a >>= \a′ → interp e (x ↦ a′ , env)
+    -- let open RawMonad PM in a >>= \a′ → interp e (x ↦ a′ , env)
   apply _ _ = now exception
 
--- Error: Termination checking failed for the following functions: interp, apply.
+e0 = ε
+t1 = lambda 'a' (var 'a')
+t2 = app (lambda 'x' (var 'x')) (lambda 'a' (var 'a'))
+t3 = app (app (lambda 'f' (lambda 'x' (app (var 'f') (var 'x'))))
+              (lambda 'a' (var 'a')))
+         (lambda 'b' (var 'b'))
+t4 = app (lambda 'x' (app (var 'x') (var 'x')))
+         (lambda 'x' (app (var 'x') (var 'x')))
+
+r1 = force (interp t1 e0)
+r2 = force (interp t2 e0)
+r3 = force (interp t3 e0)
+r4 = force (interp t4 e0)
