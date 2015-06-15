@@ -122,3 +122,62 @@ view l = getConst . l Const
 -- for state: .=, use
 -- the mappend for monoid: <>~
 -- result is either: ^?
+
+
+
+-- the category view: store comonad
+
+class Functor w => Comonad w where
+  -- dual to return
+  extract :: w a -> a
+
+  -- dual to join
+  duplicate :: w a -> w (w a)
+  duplicate = extend id
+
+  -- dual to bind
+  extend :: (w a -> b) -> w a -> w b
+  extend f x = fmap f (duplicate x)
+
+-- fmap from comonad
+liftW :: Comonad w => (a -> b) -> w a -> w b
+liftW f = extend (f . extract)
+
+
+-- one center pos and a function peek the value at any pos
+data Store a b = Store { pos :: a, peek :: a -> b }
+
+instance Functor (Store a) where
+  -- apply f at value of any pos
+  -- :: (b -> c) -> Store a b -> Store a c
+  fmap f (Store a a2b) = Store a (f . a2b)
+
+instance Comonad (Store a) where
+  -- return the value at the center
+  -- :: Store a b -> b
+  extract (Store a a2b) = a2b a
+
+  -- the value of any pos is now a copy of
+  -- this store that centered at this pos
+  -- :: Store a b -> Store a (Store a b)
+  duplicate (Store a a2b) = Store a (`Store` a2b)
+
+  -- :: (Store a b -> c) -> Store a b -> Store a c
+  extend f (Store a a2b) = Store a (f . (`Store` a2b))
+
+
+type Lens'' a b = a -> Store b a
+
+road' :: Lens'' Address String
+road' a@(A r _ _) = Store r (\r' -> a {_road = r'})
+
+-- one way
+view'' :: Lens'' a b -> a -> b
+view'' l a = pos $ l a
+
+set'' :: Lens'' a b -> a -> b -> a
+set'' l a = peek $ l a
+
+-- another way
+lens :: (a -> b) -> (a -> b -> a) -> Lens'' a b
+lens v s a = Store (v a) (s a)
