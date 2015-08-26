@@ -1,4 +1,5 @@
-(A note of https://www.fpcomplete.com/user/bartosz/understanding-algebras .)
+(A note of https://www.fpcomplete.com/user/bartosz/understanding-algebras .
+ And http://patrickthomson.ghost.io/recursion-schemes-part-2 .)
 
 For a categroy K and endofunctor `F : K -> K`,
 (here K is Hask -- the category of all Haskell types),
@@ -9,7 +10,12 @@ Defined in Control.Functor.Algebra:
 
 > type Algebra f a = f a -> a
 
-Fix point of a type constructor f:
+(We can think this as a function that collapses
+a container(computional context) of `a`'s -- `f a` -- into
+a single accumulated value `a`.)
+
+Fix point of a type constructor f is used to
+represent infinite types:
 
 > newtype Fix f = Fix { unFix :: f (Fix f) }
 
@@ -48,6 +54,10 @@ the F-homomorphism from initial algebra to it.
 Also can be viewed as from a non-recursive function `f a -> a`
 to recursive evaluator for a nested data structure.
 
+(It first `unFix` the `Fix f` to get the inner `f (Fix f)`.
+And then apply `fmap (cata a)` to do all the work recursively first.
+Finally, use `a` to collapse the result.)
+
 E.g. `ListF a b` where a is the type of element and
 b is the type we recurse into (the result).
 
@@ -80,3 +90,8 @@ can be build from simple f-algebra via catamorphism:
 > main = do
 >   print $ cata sum' lst
 >   print $ cata toStr lst
+
+Dually, there is `ana` that generalizes `unfold`:
+
+> ana :: Functor f => (a -> f a) -> (a -> Fix f)
+> ana a = Fix . fmap (ana a) . a
